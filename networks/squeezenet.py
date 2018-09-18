@@ -4,6 +4,16 @@ from chainer import links as L
 
 
 class Fire(chainer.Chain):
+    """Fire module in SqueezeNet
+    This is Fire module by chainer. If you find this paper, you can access https://arxiv.org/abs/1602.07360.
+
+    For initialization, you need 4 inputs:
+    :param in_size: int, input channel size
+    :param s1: int, output channel size in squeeze layer
+    :param e1: int, output channel size in 1\times1 expand layer
+    :param e3: int, output channel size in 3\times3 expand layer
+    """
+
     def __init__(self, in_size, s1, e1, e3):
         super(Fire, self).__init__()
         with self.init_scope():
@@ -21,6 +31,11 @@ class Fire(chainer.Chain):
 
 
 class SqueezeNetBase(chainer.Chain):
+    """Network of Squeezenet v1.1
+    Detail of this network is on https://github.com/DeepScale/SqueezeNet/tree/master/SqueezeNet_v1.1.
+    
+    :param n_out: int, the number of class
+    """
     def __init__(self, n_out):
         super(SqueezeNetBase, self).__init__()
         with self.init_scope():
