@@ -1,0 +1,5 @@
+chainer==4.4.0
+filelock==3.0.8
+numpy==1.15.1
+protobuf==3.6.1
+six==1.11.0
