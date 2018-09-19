@@ -1,6 +1,9 @@
+import collections
+
 import chainer
 from chainer import functions as F
 from chainer import links as L
+from chainer.serializers import npz
 
 
 class Fire(chainer.Chain):
@@ -33,10 +36,10 @@ class Fire(chainer.Chain):
 class SqueezeNetBase(chainer.Chain):
     """Network of Squeezenet v1.1
     Detail of this network is on https://github.com/DeepScale/SqueezeNet/tree/master/SqueezeNet_v1.1.
-    
+
     :param n_out: int, the number of class
     """
-    def __init__(self, n_out):
+    def __init__(self):
         super(SqueezeNetBase, self).__init__()
         with self.init_scope():
             self.conv1 = L.Convolution2D(3, 64, 3, stride=2)
@@ -48,34 +51,70 @@ class SqueezeNetBase(chainer.Chain):
             self.fire7 = Fire(384, 48, 192, 192)
             self.fire8 = Fire(384, 64, 256, 256)
             self.fire9 = Fire(512, 64, 256, 256)
-            self.conv10 = L.Convolution2D(512, n_out, 1, pad=1)
+            self.conv10 = L.Convolution2D(512, 1000, 1, pad=1)
 
+    @property
+    def functions(self):
+        return collections.OrderedDict([
+            ('conv1_1', [self.conv1, F.relu]),
+            ('pool1', [self._max_pooling_2d]),
+            ('fire2', [self.fire2]),
+            ('fire3', [self.fire3]),
+            ('pool2', [self._max_pooling_2d]),
+            ('fire4', [self.fire4]),
+            ('fire5', [self.fire5]),
+            ('pool3', [self._max_pooling_2d]),
+            ('fire6', [self.fire6]),
+            ('fire7', [self.fire7]),
+            ('fire8', [self.fire8]),
+            ('fire9', [self.fire9, F.dropout]),
+            ('conv10', [self.conv10, F.relu]),
+            ('gap', [self._global_average_pooling_2d]),
+            ('prob', [F.softmax]),
+        ])
+
+    def __call__(self, x, layers=None):
+        if layers is None:
+            layers = ['prob']
+
+        h = x
+        activations = {}
+        target_layers = set(layers)
+        for key, funcs in self.functions.items():
+            if len(target_layers) == 0:
+                break
+            for func in funcs:
+                h = func(h)
+            if key in target_layers:
+                activations[key] = h
+                target_layers.remove(key)
+        return activations
+
+    def _max_pooling_2d(self, x):
+        return F.max_pooling_2d(x, 3, stride=2)
+
+    def _global_average_pooling_2d(self, x):
+        n, channel, rows, cols = x.data.shape
+        h = F.average_pooling_2d(x, (rows, cols), stride=1)
+        h = F.reshape(h, (n, channel))
+        return h
+
+
+class SqueezeNet(chainer.Chain):
+    def __init__(self, n_out, pretrained_model=None):
+        super(SqueezeNet, self).__init__()
         self.n_out = n_out
+
+        with self.init_scope():
+            self.base = SqueezeNetBase()
+            self.conv10 = L.Convolution2D(512, n_out, 1, pad=1)
+        if pretrained_model:
+            npz.load_npz(pretrained_model, self.base)
 
     def __call__(self, x, train=False):
         with chainer.using_config('train', train):
-            h = self.conv1(x)
-            h = F.relu(h)
-            h = F.max_pooling_2d(h, 3, stride=2)
-
-            h = self.fire2(h)
-            h = self.fire3(h)
-            h = F.max_pooling_2d(h, 3, stride=2)
-
-            h = self.fire4(h)
-
-            h = self.fire5(h)
-            h = F.max_pooling_2d(h, 3, stride=2)
-
-            h = self.fire6(h)
-            h = self.fire7(h)
-            h = self.fire8(h)
-
-            h = self.fire9(h)
-            h = F.dropout(h, ratio=0.5)
-
+            h = self.base(x, layers=['fire9'])['fire9']
             h = F.relu(self.conv10(h))
             h = F.average_pooling_2d(h, 13)
             y = F.reshape(h, (-1, self.n_out))
-
         return y
