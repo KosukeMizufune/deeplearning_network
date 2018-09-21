@@ -110,28 +110,28 @@ class SqueezeNet(chainer.Chain):
     :return Variable, batchsize \times n_out matrix
     """
 
-    def __init__(self, n_out, pretrained_model=None):
+    def __init__(self, n_out, pretrained_model=None, init_param=None):
+        # setup
         if pretrained_model:
             # As a sampling process is time-consuming,
             # we employ a zero initializer for faster computation.
             kwargs = {'initialW': initializers.constant.Zero()}
         else:
             # employ default initializers used in the original paper
-            kwargs = {'initialW': initializers.normal.HeNormal(scale=1.0)}
+            kwargs = {'initialW': init_param}
 
         super(SqueezeNet, self).__init__()
         self.n_out = n_out
 
         with self.init_scope():
             self.base = SqueezeNetBase(kwargs)
-            self.conv10 = L.Convolution2D(512, n_out, 1, pad=1)
+            self.conv10 = L.Convolution2D(512, n_out, 1, pad=1, initialW=init_param)
         if pretrained_model:
             npz.load_npz(pretrained_model, self.base)
 
-    def __call__(self, x, train=False):
-        with chainer.using_config('train', train):
-            h = self.base(x, layers=['fire9'])['fire9']
-            h = F.relu(self.conv10(h))
-            h = F.average_pooling_2d(h, 13)
-            y = F.reshape(h, (-1, self.n_out))
+    def __call__(self, x):
+        h = self.base(x, layers=['fire9'])['fire9']
+        h = F.relu(self.conv10(h))
+        h = F.average_pooling_2d(h, 13)
+        y = F.reshape(h, (-1, self.n_out))
         return y
