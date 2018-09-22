@@ -1,5 +1,4 @@
 from functools import partial
-
 import chainer
 from chainer import cuda, iterators, optimizers, training
 from chainer.training import extensions, triggers
@@ -31,17 +30,14 @@ def run_train(train, valid, model, batchsize=32, start_lr=0.001, lr_drop_ratio=0
 
 
 def trainer_extend(trainer, net, lr_drop_ratio, lr_drop_epoch, valid_iter, gpu_id):
-    def lr_drop(trainer):
-        trainer.updater.get_optimizer('main').lr *= lr_drop_ratio
-
-    trainer.extend(
-        lr_drop,
-        trigger=triggers.ManualScheduleTrigger(lr_drop_epoch, 'epoch'))
+    trainer.extend(extensions.ExponentialShift('lr', lr_drop_ratio),
+                   trigger=triggers.ManualScheduleTrigger(lr_drop_epoch, 'epoch'))
     trainer.extend(extensions.LogReport())
+    trainer.extend(extensions.observe_lr(), trigger=(1, 'epoch'))
     trainer.extend(extensions.snapshot(filename='snapshot_epoch-{.updater.epoch}'))
     trainer.extend(extensions.Evaluator(valid_iter, net, device=gpu_id), name='val')
     trainer.extend(extensions.PrintReport(
-        ['epoch', 'main/loss', 'main/accuracy', 'val/main/loss', 'val/main/accuracy', 'elapsed_time']))
+        ['epoch', 'main/loss', 'main/accuracy', 'val/main/loss', 'val/main/accuracy', 'lr', 'elapsed_time']))
     trainer.extend(extensions.PlotReport(['main/loss', 'val/main/loss'], x_key='epoch', file_name='loss.png'))
     trainer.extend(
         extensions.PlotReport(['main/accuracy', 'val/main/accuracy'], x_key='epoch', file_name='accuracy.png'))
