@@ -61,7 +61,7 @@ class DelGradient(object):
 
 def freeze_setup(net, optimizer, freeze_layer):
     if freeze_layer == 'all':
-        net.base.disable_update()
+        net.predictor.base.disable_update()
     elif isinstance(freeze_layer, list):
         optimizer.add_hook(DelGradient(freeze_layer))
     else:
