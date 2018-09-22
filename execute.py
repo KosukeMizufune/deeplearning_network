@@ -9,19 +9,21 @@ import numpy as np
 
 def run_train(train, valid, model, batchsize=32, start_lr=0.001, lr_drop_ratio=0.1, lr_drop_epoch=20,
               l2_param=0, max_epoch=40, gpu_id=0, result_dir='result'):
+    # Iterator
     train_iter = iterators.SerialIterator(train, batchsize)
     valid_iter = iterators.SerialIterator(valid, batchsize, repeat=False, shuffle=False)
 
+    # Optimizer
     net = L.Classifier(model)
     if gpu_id >= 0:
         net.to_gpu(gpu_id)
-
     optimizer = optimizers.MomentumSGD(lr=start_lr)
     optimizer.setup(net)
     if l2_param > 0:
         optimizer.add_hook(chainer.optimizer_hooks.WeightDecay(l2_param))
-    updater = training.StandardUpdater(train_iter, optimizer, device=gpu_id)
 
+    # Trainer
+    updater = training.StandardUpdater(train_iter, optimizer, device=gpu_id)
     trainer = training.Trainer(
         updater, (max_epoch, 'epoch'), out=result_dir)
     trainer_extend(trainer, net, lr_drop_ratio, lr_drop_epoch, valid_iter, gpu_id)
