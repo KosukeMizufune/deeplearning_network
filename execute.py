@@ -1,4 +1,3 @@
-from functools import partial
 import chainer
 from chainer import cuda, iterators, optimizers, training
 from chainer.training import extensions, triggers
