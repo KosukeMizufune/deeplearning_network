@@ -1,14 +1,13 @@
 from functools import partial
 
 import chainer
-from chainer import iterators, optimizers, training
+from chainer import cuda, iterators, optimizers, training
 from chainer.training import extensions, triggers
 import chainer.links as L
-import numpy as np
 
 
 def run_train(train, valid, model, batchsize=32, start_lr=0.001, lr_drop_ratio=0.1, lr_drop_epoch=20,
-              l2_param=0, max_epoch=40, gpu_id=0, result_dir='result'):
+              freeze_layer=None, l2_param=0, max_epoch=40, gpu_id=0, result_dir='result'):
     # Iterator
     train_iter = iterators.SerialIterator(train, batchsize)
     valid_iter = iterators.SerialIterator(valid, batchsize, repeat=False, shuffle=False)
@@ -21,6 +20,7 @@ def run_train(train, valid, model, batchsize=32, start_lr=0.001, lr_drop_ratio=0
     optimizer.setup(net)
     if l2_param > 0:
         optimizer.add_hook(chainer.optimizer_hooks.WeightDecay(l2_param))
+    freeze_setup(net, optimizer, freeze_layer)
 
     # Trainer
     updater = training.StandardUpdater(train_iter, optimizer, device=gpu_id)
@@ -48,4 +48,25 @@ def trainer_extend(trainer, net, lr_drop_ratio, lr_drop_epoch, valid_iter, gpu_i
     trainer.extend(extensions.dump_graph('main/loss'))
 
 
+class DelGradient(object):
+    name = 'DelGradient'
 
+    def __init__(self, deltgt):
+        self.deltgt = deltgt
+
+    def __call__(self, opt):
+        for name, param in opt.target.namedparams():
+            for d in self.deltgt:
+                if d in name:
+                    grad = param.grad
+                    with cuda.get_device(grad):
+                        grad = 0
+
+
+def freeze_setup(net, optimizer, freeze_layer):
+    if freeze_layer == 'all':
+        net.base.disable_update()
+    elif isinstance(freeze_layer, list):
+        optimizer.add_hook(DelGradient(freeze_layer))
+    else:
+        pass
