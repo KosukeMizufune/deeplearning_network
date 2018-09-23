@@ -56,7 +56,7 @@ class SqueezeNetBase(chainer.Chain):
     @property
     def functions(self):
         return collections.OrderedDict([
-            ('conv1_1', [self.conv1, F.relu]),
+            ('conv1', [self.conv1, F.relu]),
             ('pool1', [self._max_pooling_2d]),
             ('fire2', [self.fire2]),
             ('fire3', [self.fire3]),
@@ -135,3 +135,4 @@ class SqueezeNet(chainer.Chain):
         h = F.average_pooling_2d(h, 13)
         y = F.reshape(h, (-1, self.n_out))
         return y
+
