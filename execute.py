@@ -5,7 +5,7 @@ import chainer.links as L
 
 
 def run_train(train, valid, model, batchsize=32, start_lr=0.001, lr_drop_ratio=0.1, lr_drop_epoch=20, change_lr=1,
-              partially_drop_lr_ratio = 1, freeze_layer=None, l2_param=0, max_epoch=40, gpu_id=0, result_dir='result'):
+              partially_drop_lr_ratio=1, freeze_layer=None, l2_param=0, max_epoch=40, gpu_id=0, result_dir='result'):
     # Iterator
     train_iter = iterators.SerialIterator(train, batchsize)
     valid_iter = iterators.SerialIterator(valid, batchsize, repeat=False, shuffle=False)
@@ -38,8 +38,8 @@ def trainer_extend(trainer, net, lr_drop_ratio, partially_drop_lr_ratio, lr_drop
         partially_drop_lr,
         trigger=triggers.ManualScheduleTrigger(lr_drop_epoch, 'epoch')
     )
-    trainer.extend(extensions.ExponentialShift('lr', lr_drop_ratio), 
-                   trigger=triggers.ManualScheduleTrigger(lr_drop_epoch,'epoch'))
+    trainer.extend(extensions.ExponentialShift('lr', lr_drop_ratio),
+                   trigger=triggers.ManualScheduleTrigger(lr_drop_epoch, 'epoch'))
     trainer.extend(extensions.LogReport())
     trainer.extend(extensions.observe_lr(), trigger=(1, 'epoch'))
     trainer.extend(extensions.snapshot(filename='snapshot_epoch-{.updater.epoch}'))
