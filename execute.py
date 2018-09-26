@@ -4,8 +4,9 @@ from chainer.training import extensions, triggers
 import chainer.links as L
 
 
-def run_train(train, valid, model, batchsize=32, start_lr=0.001, lr_drop_ratio=0.1, lr_drop_epoch=20, change_lr=1,
-              partially_drop_lr_ratio=1, freeze_layer=None, l2_param=0, max_epoch=40, gpu_id=0, result_dir='result'):
+def run_train(train, valid, model, batchsize=32, start_lr=0.001, lr_drop_ratio=0.1, lr_drop_epoch=20,
+              partially_start_lr=0.001, partially_lr_drop_ratio=0.1, finetune_layer=None, freeze_layer=None,
+              l2_param=0, max_epoch=40, gpu_id=0, result_dir='result'):
     # Iterator
     train_iter = iterators.SerialIterator(train, batchsize)
     valid_iter = iterators.SerialIterator(valid, batchsize, repeat=False, shuffle=False)
@@ -19,21 +20,25 @@ def run_train(train, valid, model, batchsize=32, start_lr=0.001, lr_drop_ratio=0
     if l2_param > 0:
         optimizer.add_hook(chainer.optimizer_hooks.WeightDecay(l2_param))
     freeze_setup(net, optimizer, freeze_layer)
-    if change_lr:
-        net.predictor.conv10.W.update_rule.hyperparam.lr = start_lr * change_lr
-        net.predictor.conv10.b.update_rule.hyperparam.lr = start_lr * change_lr
+    if finetune_layer:
+        for layer in finetune_layer:
+            layer.update_rule.hyperparam.lr = partially_start_lr
 
     # Trainer
     updater = training.StandardUpdater(train_iter, optimizer, device=gpu_id)
     trainer = training.Trainer(
         updater, (max_epoch, 'epoch'), out=result_dir)
-    trainer_extend(trainer, net, lr_drop_ratio, partially_drop_lr_ratio, lr_drop_epoch, valid_iter, gpu_id)
+    trainer_extend(trainer, valid_iter, net, lr_drop_ratio, lr_drop_epoch,
+                   partially_lr_drop_ratio, finetune_layer, gpu_id)
     trainer.run()
 
 
-def trainer_extend(trainer, net, lr_drop_ratio, partially_drop_lr_ratio, lr_drop_epoch, valid_iter, gpu_id):
+def trainer_extend(trainer, valid_iter, net, lr_drop_ratio, lr_drop_epoch,
+                   partially_lr_drop_ratio, finetune_layer, gpu_id):
     def partially_drop_lr(trainer):
-        net.predictor.conv10.W.update_rule.hyperparam.lr *= partially_drop_lr_ratio
+        for layer in finetune_layer:
+            layer.update_rule.hyperparam.lr *= partially_lr_drop_ratio
+
     trainer.extend(
         partially_drop_lr,
         trigger=triggers.ManualScheduleTrigger(lr_drop_epoch, 'epoch')
