@@ -101,7 +101,7 @@ class SqueezeNetBase(chainer.Chain):
         return h
 
 
-class SqueezeNet(chainer.Chain):
+class SqueezeNetBN(chainer.Chain):
     """Example of Squeezenet v1.1
     This is just a example of SqueezeNet1.1.
     You may sometimes change some layers (For example, you may change fine-tuning layers).
@@ -121,7 +121,7 @@ class SqueezeNet(chainer.Chain):
             # employ default initializers used in the original paper
             kwargs = {'initialW': init_param}
 
-        super(SqueezeNet, self).__init__()
+        super(SqueezeNetBN, self).__init__()
         self.n_out = n_out
 
         with self.init_scope():
