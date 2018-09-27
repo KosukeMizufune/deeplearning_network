@@ -40,13 +40,13 @@ class Fire(chainer.Chain):
         return h_out
 
 
-class SqueezeResNetBase(chainer.Chain):
+class SqueezePreResNetBase(chainer.Chain):
     """Network of Squeezenet v1.1
     Detail of this network is on https://github.com/DeepScale/SqueezeNet/tree/master/SqueezeNet_v1.1.
     """
 
     def __init__(self, kwargs):
-        super(SqueezeResNetBase, self).__init__()
+        super(SqueezePreResNetBase, self).__init__()
         with self.init_scope():
             self.conv1 = L.Convolution2D(3, 96, 7, stride=2, **kwargs)
             self.fire2 = Fire(96, 16, 64, 64, **kwargs)
@@ -108,7 +108,7 @@ class SqueezeResNetBase(chainer.Chain):
         return h
 
 
-class SqueezeResNet(chainer.Chain):
+class SqueezePreResNet(chainer.Chain):
     """Example of Squeezenet v1.1
     This is just a example of SqueezeNet1.1.
     You may sometimes change some layers (For example, you may change fine-tuning layers).
@@ -128,11 +128,11 @@ class SqueezeResNet(chainer.Chain):
             # employ default initializers used in the original paper
             kwargs = {'initialW': init_param}
 
-        super(SqueezeResNet, self).__init__()
+        super(SqueezePreResNet, self).__init__()
         self.n_out = n_out
 
         with self.init_scope():
-            self.base = SqueezeResNetBase(kwargs)
+            self.base = SqueezePreResNetBase(kwargs)
             self.conv10 = L.Convolution2D(512, n_out, 1, pad=1, initialW=init_param)
         if pretrained_model:
             npz.load_npz(pretrained_model, self.base, strict=False)
