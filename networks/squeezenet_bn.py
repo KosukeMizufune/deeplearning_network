@@ -133,6 +133,6 @@ class SqueezeNetBN(chainer.Chain):
     def __call__(self, x):
         h = self.base(x, layers=['fire9'])['fire9']
         h = F.relu(self.conv10(h))
-        h = F.average_pooling_2d(h, 13)
+        h = F.average_pooling_2d(h, h.array.shape[2])
         y = F.reshape(h, (-1, self.n_out))
         return y
