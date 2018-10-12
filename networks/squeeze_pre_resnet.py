@@ -75,8 +75,8 @@ class SqueezePreResNetBase(chainer.Chain):
             ('fire8', [self.fire8]),
             ('pool3', [self._max_pooling_2d]),
             ('fire9', [self.fire9]),
-            ('bn', [self.bn, F.relu, F.dropout]),
-            ('conv10', [self.conv10, F.relu]),
+            ('bn', [F.dropout, self.bn, F.relu]),
+            ('conv10', [self.conv10]),
             ('gap', [self._global_average_pooling_2d]),
             ('prob', [F.softmax]),
         ])
