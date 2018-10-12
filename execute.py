@@ -35,8 +35,11 @@ def run_train(train, valid, net, batchsize=32, start_lr=0.001, lr_drop_ratio=0.1
 def trainer_extend(trainer, valid_iter, net, lr_drop_ratio, lr_drop_epoch,
                    partially_lr_drop_ratio, finetune_layer, gpu_id):
     def partially_drop_lr(trainer):
-        for layer in finetune_layer:
-            layer.update_rule.hyperparam.lr *= partially_lr_drop_ratio
+        if finetune_layer is None:
+            pass
+        else:
+            for layer in finetune_layer:
+                layer.update_rule.hyperparam.lr *= partially_lr_drop_ratio
 
     trainer.extend(
         partially_drop_lr,
