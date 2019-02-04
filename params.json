@@ -1,0 +1,17 @@
+{
+  "random_flip": true,
+  "random_erase": true,
+  "batchsize": 32,
+  "l2_lambda": 0.0001,
+  "max_epoch": 40,
+  "lr": 0.001,
+  "lr_drop_rate": 0.1,
+  "lr_drop_epoch": [20, 30],
+  "changed_lr": 0.01,
+  "changed_lr_layer": null,
+  "freeze_layer": null,
+  "gpu_id": 0,
+  "result_dir": null,
+  "load_dir": null,
+  "save_trainer_interval": 5
+}
