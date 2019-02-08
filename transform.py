@@ -1,5 +1,5 @@
 from chainercv import transforms
-
+from chainer.functions import softmax
 import numpy as np
 
 
@@ -21,19 +21,24 @@ def random_erasing(x, p=0.5, s_base=(0.02, 0.4), r_base=(0.3, 3)):
     return x
 
 
-def transform(inputs, mean, std, output_size=(224, 224), x_random_flip=False, y_random_flip=False,
-              random_crop_size=(0, 0), random_erase=False, train=False):
+def transform(inputs, mean, std, train=False, **kwargs):
     x, lab = inputs
     x = x.copy()
     x -= mean[:, None, None]
     x /= std[:, None, None]
     x = x[::-1]
     if train:
-        if x_random_flip or y_random_flip:
-            x = transforms.random_flip(x, x_random=x_random_flip, y_random=y_random_flip)
-        if all(random_crop_size) > 0:
-            x = transforms.random_crop(x, random_crop_size)
-        if random_erase:
+        if kwargs['x_random_flip'] or kwargs['y_random_flip']:
+            x = transforms.random_flip(x, x_random=kwargs['x_random_flip'], y_random=kwargs['y_random_flip'])
+        if all(kwargs['random_crop_size']) > 0:
+            x = transforms.random_crop(x, kwargs['random_crop_size'])
+        if kwargs['random_erase']:
             x = random_erasing(x)
-    x = transforms.resize(x, output_size)
+    x = transforms.resize(x, kwargs['output_size'])
     return x, lab
+
+
+def transform_with_softlabel(inputs, mean, std, model, train=False, **kwargs):
+    x, lab = transform(inputs, mean, std, train, **kwargs)
+    soft_lab = softmax(model(x[None, :])).array[0]
+    return x, soft_lab, lab
