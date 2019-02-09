@@ -1,6 +1,7 @@
 from chainercv import transforms
 from chainer.functions import softmax
 import numpy as np
+from chainer.cuda import to_gpu, to_cpu
 
 
 def random_erasing(x, p=0.5, s_base=(0.02, 0.4), r_base=(0.3, 3)):
@@ -38,7 +39,13 @@ def transform(inputs, mean, std, train=False, **kwargs):
     return x, lab
 
 
-def transform_with_softlabel(inputs, mean, std, model, train=False, **kwargs):
-    x, lab = transform(inputs, mean, std, train, **kwargs)
-    soft_lab = softmax(model(x[None, :])).array[0]
+def transform_with_softlabel(inputs, mean, std, train=False, **kwargs):
+    x, soft_lab, lab = inputs
+    x, lab = transform((x, lab), mean, std, train, **kwargs)
     return x, soft_lab, lab
+
+
+def generate_softlabel(inputs, mean, std, model, train=False, **kwargs):
+    x, _ = transform(inputs, mean, std, train, **kwargs)
+    soft_lab = to_cpu(softmax(model(to_gpu(x[None, :]))).array[0])
+    return soft_lab
