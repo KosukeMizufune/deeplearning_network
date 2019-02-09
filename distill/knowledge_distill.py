@@ -4,6 +4,7 @@ import six
 import chainer
 from chainer.backends import cuda
 from chainer import function
+import chainer.functions as F
 from chainer.functions.activation import log_softmax
 from chainer import variable
 from chainer.functions.evaluation import accuracy
@@ -15,7 +16,8 @@ class DistillClassifier(link.Chain):
     compute_accuracy = True
 
     def __init__(self, predictor,
-                 lossfun,
+                 lossfun_soft,
+                 lossfun_hard=F.softmax_cross_entropy,
                  accfun=accuracy.accuracy,
                  label_key=-1):
         if not (isinstance(label_key, (int, str))):
@@ -23,7 +25,8 @@ class DistillClassifier(link.Chain):
                             type(label_key))
 
         super(DistillClassifier, self).__init__()
-        self.lossfun = lossfun
+        self.lossfun_soft = lossfun_soft
+        self.lossfun_hard = lossfun_hard
         self.accfun = accfun
         self.y = None
         self.loss = None
@@ -56,7 +59,9 @@ class DistillClassifier(link.Chain):
         soft_label = args[1]
 
         self.y = self.predictor(args[0], **kwargs)
-        self.loss = self.lossfun(self.y, soft_label)
+        loss_soft = self.lossfun_soft(self.y, soft_label)
+        loss_hard = self.lossfun_hard(self.y, t)
+        self.loss = loss_soft + loss_hard
         reporter.report({'loss': self.loss}, self)
         if self.compute_accuracy:
             self.accuracy = self.accfun(self.y, t)
