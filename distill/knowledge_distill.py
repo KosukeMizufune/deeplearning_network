@@ -16,8 +16,10 @@ class DistillClassifier(link.Chain):
     compute_accuracy = True
 
     def __init__(self, predictor,
-                 lossfun_soft,
+                 lossfun_soft=None,
                  lossfun_hard=F.softmax_cross_entropy,
+                 alpha=0.5,
+                 t=1.0,
                  accfun=accuracy.accuracy,
                  label_key=-1):
         if not (isinstance(label_key, (int, str))):
@@ -32,6 +34,10 @@ class DistillClassifier(link.Chain):
         self.loss = None
         self.accuracy = None
         self.label_key = label_key
+        self.loss_soft = 0
+        self.loss_hard = 0
+        self.alpha = alpha
+        self.T = t
 
         with self.init_scope():
             self.predictor = predictor
@@ -57,11 +63,13 @@ class DistillClassifier(link.Chain):
         self.loss = None
         self.accuracy = None
         soft_label = args[1]
+        soft_label = F.softmax(soft_label / self.T)
 
         self.y = self.predictor(args[0], **kwargs)
-        loss_soft = self.lossfun_soft(self.y, soft_label)
-        loss_hard = self.lossfun_hard(self.y, t)
-        self.loss = loss_soft + loss_hard
+        if self.lossfun_soft:
+            self.loss_soft = self.lossfun_soft(self.y / self.T, soft_label)
+        self.loss_hard = self.lossfun_hard(self.y, t)
+        self.loss = (1-self.alpha) * self.loss_soft * self.T * self.T + self.alpha * self.loss_hard
         reporter.report({'loss': self.loss}, self)
         if self.compute_accuracy:
             self.accuracy = self.accfun(self.y, t)
