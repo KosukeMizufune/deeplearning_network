@@ -167,13 +167,7 @@ class SoftmaxCrossEntropySoftlabel(function.Function):
             coeff = max(1, len(soft_label))
         self._coeff = cupy.divide(1.0, coeff, dtype=x.dtype)
 
-        ret = cuda.elementwise(
-            'T soft_label, T log_y',
-            'T out',
-            'out=soft_label * log_y',
-            'crossent_fwd'
-        )(soft_label, log_y)
-        ret = -cupy.sum(ret) * self._coeff
+        ret = - cupy.sum(soft_label * log_y) * self._coeff
         return ret,
 
     def backward_cpu(self, inputs, grad_outputs):
@@ -210,23 +204,9 @@ class SoftmaxCrossEntropySoftlabel(function.Function):
         coeff = gloss * self._coeff
 
         if self.class_weight is None:
-            gx = cuda.elementwise(
-                'T y, T soft_label, T coeff',
-                'T gx',
-                '''
-                    gx = coeff * (y - soft_label);
-                ''',
-                'softmax_crossent_bwd')(
-                    y, soft_label, coeff)
+            gx = (y - soft_label) * coeff
         else:
-            gx = cuda.elementwise(
-                'T y, T w, T t, T coeff',
-                'T gx',
-                '''
-                    gx = coeff * (y - soft_label) * w;
-                ''',
-                'softmax_crossent_weight_bwd')(
-                    y, self.class_weight, soft_label, coeff)
+            gx = (y - soft_label) * self.class_weight * coeff
         return gx, None
 
 
