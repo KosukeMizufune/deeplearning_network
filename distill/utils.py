@@ -4,7 +4,7 @@ from chainer.cuda import to_gpu, to_cpu
 
 import numpy as np
 
-from .. import transform
+import transform
 
 
 def save_softlabels(data, generate_softlab, out_dir):
