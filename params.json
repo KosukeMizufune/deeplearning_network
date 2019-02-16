@@ -16,5 +16,8 @@
   "gpu_id": 0,
   "result_dir": null,
   "load_dir": null,
-  "save_trainer_interval": 5
+  "save_trainer_interval": 5,
+  "unit": "epoch",
+  "snapshot_filename": "snapshot_epoch-",
+  "print_report": ["epoch", "main/loss", "main/accuracy", "val/main/loss", "val/main/accuracy", "lr", "elapsed_time"]
 }
