@@ -5,7 +5,7 @@ from chainer import functions as F
 from chainer import links as L
 from chainer.serializers import npz
 from chainer import initializers
-
+from chainer import link, reporter
 
 class Fire(chainer.Chain):
     """Fire module in SqueezeNet
@@ -42,7 +42,7 @@ class SqueezeNetBase(chainer.Chain):
     def __init__(self, kwargs):
         super(SqueezeNetBase, self).__init__()
         with self.init_scope():
-            self.conv1 = L.Convolution2D(3, 64, 3, stride=2, **kwargs)
+            self.conv1 = L.Convolution2D(3, 64, 3, stride=2, pad=1, **kwargs)
             self.fire2 = Fire(64, 16, 64, 64, **kwargs)
             self.fire3 = Fire(128, 16, 64, 64, **kwargs)
             self.fire4 = Fire(128, 32, 128, 128, **kwargs)
@@ -110,7 +110,7 @@ class SqueezeNet(chainer.Chain):
     :return Variable, batchsize \times n_out matrix
     """
 
-    def __init__(self, n_out, pretrained_model=None, init_param=None):
+    def __init__(self, n_out, pretrained_model=None, init_param=None, layers=None):
         # setup
         if pretrained_model:
             # As a sampling process is time-consuming,
@@ -122,6 +122,10 @@ class SqueezeNet(chainer.Chain):
 
         super(SqueezeNet, self).__init__()
         self.n_out = n_out
+        if layers:
+            self.layers = layers
+        else:
+            self.layers = ['fire9']
 
         with self.init_scope():
             self.base = SqueezeNetBase(kwargs)
@@ -130,8 +134,10 @@ class SqueezeNet(chainer.Chain):
             npz.load_npz(pretrained_model, self.base)
 
     def __call__(self, x):
-        h = self.base(x, layers=['fire9'])['fire9']
-        h = F.relu(self.conv10(h))
+        h0 = self.base(x, layers=self.layers)
+        h = F.relu(self.conv10(h0[self.layers[-1]]))
         h = F.average_pooling_2d(h, h.array.shape[2])
         y = F.reshape(h, (-1, self.n_out))
+        if h0:
+            return y, h0
         return y
