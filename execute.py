@@ -83,5 +83,3 @@ def freeze_setup(net, optimizer, freeze_layer):
         net.predictor.base.disable_update()
     elif isinstance(freeze_layer, list):
         optimizer.add_hook(DelGradient(freeze_layer))
-    else:
-        pass
