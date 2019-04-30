@@ -1,6 +1,9 @@
+import collections
+
 import chainer
 import chainer.functions as F
 import chainer.links as L
+from chainer.serializers import npz
 
 
 # https://github.com/mitmul/chainer-cifar10/blob/master/models/wide_resnet.py
@@ -45,7 +48,7 @@ class WideBlock(chainer.ChainList):
 
 class WideResNet(chainer.Chain):
     def __init__(
-            self, widen_factor=10, depth=28, num_classes=10, dropout=True):
+            self, widen_factor, depth, n_class, dropout=True):
         k = widen_factor
         assert (depth - 4) % 6 == 0, 'depth should be 6n+4'
         n = (depth - 4) // 6
@@ -59,13 +62,66 @@ class WideResNet(chainer.Chain):
             self.wide3 = WideBlock(n_stages[1], n_stages[2], n, 2, dropout)
             self.wide4 = WideBlock(n_stages[2], n_stages[3], n, 2, dropout)
             self.bn5 = L.BatchNormalization(n_stages[3])
-            self.fc6 = L.Linear(n_stages[3], num_classes, initialW=w)
+            self.fc6 = L.Linear(n_stages[3], n_class, initialW=w)
+
+    @property
+    def functions(self):
+        return collections.OrderedDict([
+            ('conv1', [self.conv1]),
+            ('wide2', [self.wide2]),
+            ('wide3', [self.wide3]),
+            ('wide4', [self.wide4]),
+            ('bn5', [self.bn5]),
+            ('fc6', [self.fc6]),
+        ])
+
+    def __call__(self, x, layers=None):
+        if layers is None:
+            layers = ['fc6']
+
+        h = x
+        activations = {}
+        target_layers = set(layers)
+        for key, funcs in self.functions.items():
+            if len(target_layers) == 0:
+                break
+            for func in funcs:
+                h = func(h)
+            if key in target_layers:
+                activations[key] = h
+                target_layers.remove(key)
+        return activations
+
+
+class WideResNet402(chainer.Chain):
+    def __init__(self, n_class, pretrained_model_path=None, layers=None):
+        super(WideResNet402, self).__init__()
+        if layers:
+            self.layers = layers
+        else:
+            self.layers = ['fc6']
+        with self.init_scope():
+            self.model = WideResNet(2, 40, n_class)
+        if pretrained_model_path:
+            npz.load_npz(pretrained_model_path, self.model)
 
     def __call__(self, x):
-        h = self.conv1(x)
-        h = self.wide2(h)
-        h = self.wide3(h)
-        h = self.wide4(h)
-        h = F.relu(self.bn5(h))
-        h = F.average_pooling_2d(h, (h.shape[2], h.shape[3]))
-        return self.fc6(h)
+        y = self.model(x, layers=['fc6'])['fc6']
+        return y
+
+
+class WideResNet401(chainer.Chain):
+    def __init__(self, n_class, pretrained_model_path=None, layers=None):
+        super(WideResNet401, self).__init__()
+        if layers:
+            self.layers = layers
+        else:
+            self.layers = ['fc6']
+        with self.init_scope():
+            self.model = WideResNet(1, 40, n_class)
+        if pretrained_model_path:
+            npz.load_npz(pretrained_model_path, self.model)
+
+    def __call__(self, x):
+        y = self.model(x, layers=['fc6'])['fc6']
+        return y
