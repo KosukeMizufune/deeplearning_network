@@ -9,11 +9,13 @@ from chainer import links as L
 from utils import create_iterator, create_model, caffe2npz
 
 
-def trainer_extend(trainer, evaluator, args):
+def trainer_extend(trainer, net, evaluator, args):
     def slow_drop_lr(trainer):
         if args.small_lr_layers:
-            for layer in args.small_lr_layers:
-                layer.update_rule.hyperparam.lr *= args.lr_decay_rate
+            for layer_name in args.small_lr_layers:
+                layer = getattr(net.predictor, layer_name)
+                layer.W.update_rule.hyperparam.lr *= args.lr_decay_rate
+                layer.b.update_rule.hyperparam.lr *= args.lr_decay_rate
 
     # Learning rate
     trainer.extend(
@@ -88,8 +90,10 @@ def run_train(train_iter, net, evaluator, args):
         freeze_setup(net, optimizer, args.freeze_layer)
 
     if args.small_lr_layers:
-        for layer in args.small_lr_layers:
-            layer.update_rule.hyperparam.lr = args.small_initial_lr
+        for layer_name in args.small_lr_layers:
+            layer = getattr(net.predictor, layer_name)
+            layer.W.update_rule.hyperparam.lr = args.small_initial_lr
+            layer.b.update_rule.hyperparam.lr = args.small_initial_lr
 
     # Trainer
     updater = training.StandardUpdater(train_iter, optimizer, device=args.gpu_id)
@@ -99,7 +103,7 @@ def run_train(train_iter, net, evaluator, args):
     if args.load_path:
         chainer.serializers.load_npz(args.load_path, trainer)
 
-    trainer_extend(trainer, evaluator, args)
+    trainer_extend(trainer, net, evaluator, args)
     trainer.run()
 
 
