@@ -5,7 +5,6 @@ from chainer import functions as F
 from chainer import links as L
 from chainer.serializers import npz
 from chainer import initializers
-from chainer import link, reporter
 
 
 class Fire(chainer.Chain):
@@ -37,7 +36,7 @@ class Fire(chainer.Chain):
 
 class SqueezeNetBase(chainer.Chain):
     """Network of Squeezenet v1.1
-    Detail of this network is on https://github.com/DeepScale/SqueezeNet/tree/master/SqueezeNet_v1.1.
+    Detail of this network is on https://github.com/DeepScale/SqueezeNet/tree/master/SqueezeNet_v1.1
     """
 
     def __init__(self, kwargs):
@@ -137,10 +136,9 @@ class SqueezeNet(chainer.Chain):
             npz.load_npz(pretrained_model_path, self.base)
 
     def __call__(self, x):
-        h0 = self.base(x, layers=self.layers)
-        h = F.relu(self.conv10(h0[self.layers[-1]]))
+        # TODO: Attention Transfer
+        h = self.base(x, layers=['fire9'])['fire9']
+        h = F.relu(self.conv10(h))
         h = F.average_pooling_2d(h, h.array.shape[2])
         y = F.reshape(h, (-1, self.n_out))
-        if h0:
-            return y, h0
         return y
