@@ -1,6 +1,27 @@
 from chainercv import transforms
 
 import numpy as np
+from skimage import transform as skimage_transform
+import cv2 as cv
+
+USE_OPENCV = False
+
+
+def cv_rotate(img, angle):
+    if USE_OPENCV:
+        img = img.transpose(1, 2, 0) / 255.
+        center = (img.shape[0] // 2, img.shape[1] // 2)
+        r = cv.getRotationMatrix2D(center, angle, 1.0)
+        img = cv.warpAffine(img, r, img.shape[:2])
+        img = img.transpose(2, 0, 1) * 255.
+        img = img.astype(np.float32)
+    else:
+        # scikit-image's rotate function is almost 7x slower than OpenCV
+        img = img.transpose(1, 2, 0) / 255.
+        img = skimage_transform.rotate(img, angle, mode='edge')
+        img = img.transpose(2, 0, 1) * 255.
+        img = img.astype(np.float32)
+    return img
 
 
 def random_erasing(x, p=0.5, s_base=(0.02, 0.4), r_base=(0.3, 3)):
@@ -24,17 +45,34 @@ def random_erasing(x, p=0.5, s_base=(0.02, 0.4), r_base=(0.3, 3)):
 def transform(inputs, mean, std, train=False, **kwargs):
     x, lab = inputs
     x = x.copy()
+    # Color augmentation
+    if train and kwargs['pca_sigma'] != 0:
+        x = transforms.pca_lighting(x, kwargs['pca_sigma'])
     x -= mean[:, None, None]
     x /= std[:, None, None]
     x = x[::-1]
     if train:
+        # Random rotate
+        if kwargs['random_angle'] != 0:
+            angle = np.random.uniform(-kwargs['random_angle'], kwargs['random_angle'])
+            x = cv_rotate(x, angle)
+
+        # Random flip
         if kwargs['x_random_flip'] or kwargs['y_random_flip']:
             x = transforms.random_flip(x, x_random=kwargs['x_random_flip'], y_random=kwargs['y_random_flip'])
+
+        # Random expand
+        if kwargs['expand_ratio'] > 1:
+            x = transforms.random_expand(x, max_ratio=kwargs['expand_ratio'])
+
         if all(kwargs['random_crop_size']) > 0:
             x = transforms.random_crop(x, kwargs['random_crop_size'])
-        if kwargs['random_erase']:
-            x = random_erasing(x)
-    x = transforms.resize(x, kwargs['output_size'])
+        else:
+            if kwargs['random_erase']:
+                x = random_erasing(x)
+    if not all(kwargs['random_crop_size']) > 0:
+        x = transforms.resize(x, kwargs['output_size'])
+
     return x, lab
 
 
