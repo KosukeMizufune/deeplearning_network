@@ -1,10 +1,12 @@
 import chainer
 from chainer import links as L
+from chainer import initializers
 
 
 class ResNet101(chainer.Chain):
-    def __init__(self, n_out, init_param=None, pretrained_model='auto', layers=None):
+    def __init__(self, n_out, pretrained_model='auto', layers=None):
         super(ResNet101, self).__init__()
+        init_param = initializers.HeNormal()
         self.n_out = n_out
         if layers:
             self.layers = layers

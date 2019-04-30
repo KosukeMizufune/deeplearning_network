@@ -7,6 +7,7 @@ from chainer.serializers import npz
 from chainer import initializers
 from chainer import link, reporter
 
+
 class Fire(chainer.Chain):
     """Fire module in SqueezeNet
     This is Fire module by chainer. If you find this paper, you can access https://arxiv.org/abs/1602.07360.
@@ -110,9 +111,11 @@ class SqueezeNet(chainer.Chain):
     :return Variable, batchsize \times n_out matrix
     """
 
-    def __init__(self, n_out, pretrained_model=None, init_param=None, layers=None):
+    def __init__(self, n_out, pretrained_model_path=None, layers=None):
+        init_param = initializers.HeNormal()
+        # TODO: rename layers
         # setup
-        if pretrained_model:
+        if pretrained_model_path:
             # As a sampling process is time-consuming,
             # we employ a zero initializer for faster computation.
             kwargs = {'initialW': initializers.constant.Zero()}
@@ -130,8 +133,8 @@ class SqueezeNet(chainer.Chain):
         with self.init_scope():
             self.base = SqueezeNetBase(kwargs)
             self.conv10 = L.Convolution2D(512, n_out, 1, pad=1, initialW=init_param)
-        if pretrained_model:
-            npz.load_npz(pretrained_model, self.base)
+        if pretrained_model_path:
+            npz.load_npz(pretrained_model_path, self.base)
 
     def __call__(self, x):
         h0 = self.base(x, layers=self.layers)
