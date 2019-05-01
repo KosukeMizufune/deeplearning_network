@@ -70,7 +70,10 @@ def transform_img(inputs, args, mean, std, train=False):
         else:
             if args.random_erase:
                 x = random_erasing(x)
-    if not all(args.random_crop_size) > 0:
+
+    if all(args.random_crop_size) > 0:
+        x = transforms.resize(x, args.random_crop_size)
+    else:
         x = transforms.resize(x, args.output_size)
 
     return x, lab
