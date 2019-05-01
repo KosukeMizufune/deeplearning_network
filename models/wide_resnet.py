@@ -71,7 +71,7 @@ class WideResNet(chainer.Chain):
             ('wide2', [self.wide2]),
             ('wide3', [self.wide3]),
             ('wide4', [self.wide4]),
-            ('bn5', [self.bn5]),
+            ('bn5', [self.bn5, F.relu, _global_average_pooling_2d]),
             ('fc6', [self.fc6]),
         ])
 
@@ -125,3 +125,9 @@ class WideResNet401(chainer.Chain):
     def __call__(self, x):
         y = self.model(x, layers=['fc6'])['fc6']
         return y
+
+
+def _global_average_pooling_2d(x):
+    _, _, rows, cols = x.shape
+    h = F.average_pooling_2d(x, (rows, cols), stride=1)
+    return h
