@@ -42,39 +42,43 @@ def random_erasing(x, p=0.5, s_base=(0.02, 0.4), r_base=(0.3, 3)):
     return x
 
 
-def transform_img(inputs, args, mean, std, train=False):
+def transform_img(inputs, mean, std,
+                  pca_sigma=0, random_angle=0, x_random_flip=False,
+                  y_random_flip=False, expand_ratio=1., random_crop_size=(224, 224),
+                  random_erase=False, output_size=(224, 224),
+                  train=False):
     x, lab = inputs
     x = x.copy()
     # Color augmentation
-    if train and args.pca_sigma != 0:
-        x = transforms.pca_lighting(x, args.pca_sigma)
+    if train and pca_sigma != 0:
+        x = transforms.pca_lighting(x, pca_sigma)
     x -= mean[:, None, None]
     x /= std[:, None, None]
     x = x[::-1]
     if train:
         # Random rotate
-        if args.random_angle != 0:
-            angle = np.random.uniform(-args.random_angle, args.random_angle)
+        if random_angle != 0:
+            angle = np.random.uniform(-random_angle, random_angle)
             x = cv_rotate(x, angle)
 
         # Random flip
-        if args.x_random_flip or args.y_random_flip:
-            x = transforms.random_flip(x, x_random=args.x_random_flip, y_random=args.y_random_flip)
+        if x_random_flip or y_random_flip:
+            x = transforms.random_flip(x, x_random=x_random_flip, y_random=y_random_flip)
 
         # Random expand
-        if args.expand_ratio > 1:
-            x = transforms.random_expand(x, max_ratio=args.expand_ratio)
+        if expand_ratio > 1:
+            x = transforms.random_expand(x, max_ratio=expand_ratio)
 
-        if all(args.random_crop_size) > 0:
-            x = transforms.random_crop(x, args.random_crop_size)
+        if all(random_crop_size) > 0:
+            x = transforms.random_crop(x, random_crop_size)
         else:
-            if args.random_erase:
+            if random_erase:
                 x = random_erasing(x)
 
-    if all(args.random_crop_size) > 0:
-        x = transforms.resize(x, args.random_crop_size)
+    if all(random_crop_size) > 0:
+        x = transforms.resize(x, random_crop_size)
     else:
-        x = transforms.resize(x, args.output_size)
+        x = transforms.resize(x, output_size)
 
     return x, lab
 
