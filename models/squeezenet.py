@@ -18,8 +18,9 @@ class Fire(chainer.Chain):
     :param e3: int, output channel size in 3\times3 expand layer
     """
 
-    def __init__(self, in_size, s1, e1, e3, initialW=None, initial_bias=None):
+    def __init__(self, in_size, s1, e1, e3, bypass=False, initialW=None, initial_bias=None):
         super(Fire, self).__init__()
+        self.bypass = bypass
         with self.init_scope():
             self.squeeze1x1 = L.Convolution2D(in_size, s1, 1, initialW=initialW, initial_bias=initial_bias)
             self.expand1x1 = L.Convolution2D(s1, e1, 1, initialW=initialW, initial_bias=initial_bias)
@@ -27,30 +28,32 @@ class Fire(chainer.Chain):
 
     def __call__(self, x):
         h = F.relu(self.squeeze1x1(x))
-        h_1 = self.expand1x1(h)
-        h_3 = self.expand3x3(h)
+        h_1 = F.relu(self.expand1x1(h))
+        h_3 = F.relu(self.expand3x3(h))
         h_out = F.concat([h_1, h_3], axis=1)
+        if self.bypass:
+            h_out += x
 
-        return F.relu(h_out)
+        return h_out
 
 
 class SqueezeNetBase(chainer.Chain):
-    """Network of Squeezenet v1.1
-    Detail of this network is on https://github.com/DeepScale/SqueezeNet/tree/master/SqueezeNet_v1.1
+    """
+    Network of Squeezenet
     """
 
-    def __init__(self, kwargs):
+    def __init__(self, res_flag, kwargs):
         super(SqueezeNetBase, self).__init__()
         with self.init_scope():
-            self.conv1 = L.Convolution2D(3, 64, 3, stride=2, pad=1, **kwargs)
-            self.fire2 = Fire(64, 16, 64, 64, **kwargs)
-            self.fire3 = Fire(128, 16, 64, 64, **kwargs)
+            self.conv1 = L.Convolution2D(3, 96, 7, stride=2, **kwargs)
+            self.fire2 = Fire(96, 16, 64, 64, **kwargs)
+            self.fire3 = Fire(128, 16, 64, 64, bypass=res_flag, **kwargs)
             self.fire4 = Fire(128, 32, 128, 128, **kwargs)
-            self.fire5 = Fire(256, 32, 128, 128, **kwargs)
+            self.fire5 = Fire(256, 32, 128, 128, bypass=res_flag, **kwargs)
             self.fire6 = Fire(256, 48, 192, 192, **kwargs)
-            self.fire7 = Fire(384, 48, 192, 192, **kwargs)
+            self.fire7 = Fire(384, 48, 192, 192, bypass=res_flag, **kwargs)
             self.fire8 = Fire(384, 64, 256, 256, **kwargs)
-            self.fire9 = Fire(512, 64, 256, 256, **kwargs)
+            self.fire9 = Fire(512, 64, 256, 256, bypass=res_flag, **kwargs)
             self.conv10 = L.Convolution2D(512, 1000, 1, pad=1, **kwargs)
 
     @property
@@ -60,13 +63,13 @@ class SqueezeNetBase(chainer.Chain):
             ('pool1', [self._max_pooling_2d]),
             ('fire2', [self.fire2]),
             ('fire3', [self.fire3]),
-            ('pool2', [self._max_pooling_2d]),
             ('fire4', [self.fire4]),
+            ('pool2', [self._max_pooling_2d]),
             ('fire5', [self.fire5]),
-            ('pool3', [self._max_pooling_2d]),
             ('fire6', [self.fire6]),
             ('fire7', [self.fire7]),
             ('fire8', [self.fire8]),
+            ('pool3', [self._max_pooling_2d]),
             ('fire9', [self.fire9, F.dropout]),
             ('conv10', [self.conv10, F.relu]),
             ('gap', [self._global_average_pooling_2d]),
@@ -130,7 +133,51 @@ class SqueezeNet(chainer.Chain):
             self.layers = ['fire9']
 
         with self.init_scope():
-            self.base = SqueezeNetBase(kwargs)
+            self.base = SqueezeNetBase(False, kwargs)
+            self.conv10 = L.Convolution2D(512, n_out, 1, pad=1, initialW=init_param)
+        if pretrained_model_path:
+            npz.load_npz(pretrained_model_path, self.base)
+
+    def __call__(self, x):
+        # TODO: Attention Transfer
+        h = self.base(x, layers=['fire9'])['fire9']
+        h = F.relu(self.conv10(h))
+        h = F.average_pooling_2d(h, h.array.shape[2])
+        y = F.reshape(h, (-1, self.n_out))
+        return y
+
+
+class SqueezeResNet(chainer.Chain):
+    """Example of Squeezenet
+    This is just a example of SqueezeNet1.1.
+    You may sometimes change some layers (For example, you may change fine-tuning layers).
+
+    :param n_out: int, the number of class
+    :param pretrained_mdoel: str, pretrained model path
+    :return Variable, batchsize \times n_out matrix
+    """
+
+    def __init__(self, n_out, pretrained_model_path=None, layers=None):
+        init_param = initializers.HeNormal()
+        # TODO: rename layers
+        # setup
+        if pretrained_model_path:
+            # As a sampling process is time-consuming,
+            # we employ a zero initializer for faster computation.
+            kwargs = {'initialW': initializers.constant.Zero()}
+        else:
+            # employ default initializers used in the original paper
+            kwargs = {'initialW': init_param}
+
+        super(SqueezeResNet, self).__init__()
+        self.n_out = n_out
+        if layers:
+            self.layers = layers
+        else:
+            self.layers = ['fire9']
+
+        with self.init_scope():
+            self.base = SqueezeNetBase(True, kwargs)
             self.conv10 = L.Convolution2D(512, n_out, 1, pad=1, initialW=init_param)
         if pretrained_model_path:
             npz.load_npz(pretrained_model_path, self.base)
