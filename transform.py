@@ -81,9 +81,3 @@ def transform_img(inputs, mean, std,
         x = transforms.resize(x, output_size)
 
     return x, lab
-
-
-def transform_with_softlabel(inputs, mean, std, train=False, **kwargs):
-    x, soft_lab, lab = inputs
-    x, lab = transform_img((x, lab), mean, std, train, **kwargs)
-    return x, soft_lab, lab
