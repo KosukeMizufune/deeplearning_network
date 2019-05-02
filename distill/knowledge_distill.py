@@ -125,6 +125,7 @@ class SoftmaxCrossEntropySoftlabel(function.Function):
         self.ignore_label = ignore_label
         _check_reduce_option(reduce)
         self.reduce = reduce
+        self._coeff = 0.
 
     def forward_cpu(self, inputs):
         x, soft_label = inputs
@@ -210,6 +211,11 @@ class SoftmaxCrossEntropySoftlabel(function.Function):
         return gx, None
 
 
-def softmax_cross_entropy_softlabel(x, t, normalize=True, cache_score=True, class_weight=None,
-                                    ignore_label=-1, reduce='mean'):
-    return SoftmaxCrossEntropySoftlabel(normalize, cache_score, class_weight, ignore_label, reduce)(x, t)
+def softmax_cross_entropy_softlabel(x, t, normalize=True, cache_score=True,
+                                    class_weight=None, ignore_label=-1,
+                                    reduce='mean'):
+    return SoftmaxCrossEntropySoftlabel(normalize,
+                                        cache_score,
+                                        class_weight,
+                                        ignore_label,
+                                        reduce)(x, t)
