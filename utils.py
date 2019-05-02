@@ -14,15 +14,10 @@ import numpy as np
 from transform import transform_img
 
 
-def create_iterator(pca_sigma, random_angle, x_random_flip, y_random_flip,
-                    expand_ratio, random_crop_size, random_erase, output_size, batchsize):
-    train_val, test = cifar.get_cifar10(scale=255.)
-    train_size = int(len(train_val) * 0.9)
-    train, valid = split_dataset_random(train_val, train_size, seed=0)
-
-    mean = np.mean([x for x, _ in train], axis=(0, 2, 3))
-    std = np.std([x for x, _ in train], axis=(0, 2, 3))
-
+def create_iterator(train, valid, mean, std,
+                    pca_sigma, random_angle, x_random_flip, y_random_flip,
+                    expand_ratio, random_crop_size, random_erase, output_size,
+                    batchsize):
     transform_train = partial(transform_img,
                               mean=mean,
                               std=std,
