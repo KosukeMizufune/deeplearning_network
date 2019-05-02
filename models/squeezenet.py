@@ -18,8 +18,9 @@ class Fire(chainer.Chain):
     :param e3: int, output channel size in 3\times3 expand layer
     """
 
-    def __init__(self, in_size, s1, e1, e3, initialW=None, initial_bias=None):
+    def __init__(self, in_size, s1, e1, e3, bypass=False, initialW=None, initial_bias=None):
         super(Fire, self).__init__()
+        self.bypass = bypass
         with self.init_scope():
             self.squeeze1x1 = L.Convolution2D(in_size, s1, 1, initialW=initialW, initial_bias=initial_bias)
             self.expand1x1 = L.Convolution2D(s1, e1, 1, initialW=initialW, initial_bias=initial_bias)
@@ -27,22 +28,21 @@ class Fire(chainer.Chain):
 
     def __call__(self, x):
         h = F.relu(self.squeeze1x1(x))
-        h_1 = self.expand1x1(h)
-        h_3 = self.expand3x3(h)
+        h_1 = F.relu(self.expand1x1(h))
+        h_3 = F.relu(self.expand3x3(h))
         h_out = F.concat([h_1, h_3], axis=1)
-
-        return F.relu(h_out)
+        return h_out
 
 
 class SqueezeNetBase(chainer.Chain):
     """Network of Squeezenet v1.1
-    Detail of this network is on https://github.com/DeepScale/SqueezeNet/tree/master/SqueezeNet_v1.1
+    Detail of this network is on https://github.com/DeepScale/SqueezeNet/tree/master/SqueezeNet_v1.1.
     """
 
     def __init__(self, kwargs):
         super(SqueezeNetBase, self).__init__()
         with self.init_scope():
-            self.conv1 = L.Convolution2D(3, 64, 3, stride=2, pad=1, **kwargs)
+            self.conv1 = L.Convolution2D(3, 64, 3, stride=2, **kwargs)
             self.fire2 = Fire(64, 16, 64, 64, **kwargs)
             self.fire3 = Fire(128, 16, 64, 64, **kwargs)
             self.fire4 = Fire(128, 32, 128, 128, **kwargs)
