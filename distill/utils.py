@@ -4,7 +4,7 @@ from chainer.cuda import to_gpu, to_cpu
 
 import numpy as np
 
-import transform
+from ..transform import transform_img
 
 
 def save_softlabels(data, generate_softlab, out_dir):
@@ -13,9 +13,15 @@ def save_softlabels(data, generate_softlab, out_dir):
     np.save(out_dir, soft_labels)
 
 
-def generate_softlabel(inputs, mean, std, model, train=False, **kwargs):
-    x, lab = transform.transform(inputs, mean, std, train, **kwargs)
+def generate_softlabel(inputs, mean, std, model):
+    x, lab = transform_img(inputs, mean, std, train=False)
     with chainer.using_config('train', False), \
             chainer.using_config('enable_backprop', False):
         soft_lab = to_cpu(model(to_gpu(x[None, :])).array[0])
     return soft_lab
+
+
+def transform_with_softlabel(inputs, mean, std, train=False, **kwargs):
+    x, soft_lab, lab = inputs
+    x, lab = transform_img((x, lab), mean, std, train)
+    return x, soft_lab, lab
