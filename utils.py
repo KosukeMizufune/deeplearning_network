@@ -9,16 +9,15 @@ from chainer.links.caffe.caffe_function import CaffeFunction
 from chainer.serializers import npz
 from chainer.optimizer_hooks import WeightDecay
 from chainer.training import extensions, triggers
-import numpy as np
 
-from transform import transform_img
+from distill.utils import transform_with_softlabel
 
 
 def create_iterator(train, valid, mean, std,
                     pca_sigma, random_angle, x_random_flip, y_random_flip,
                     expand_ratio, random_crop_size, random_erase, output_size,
                     batchsize):
-    transform_train = partial(transform_img,
+    transform_train = partial(transform_with_softlabel,
                               mean=mean,
                               std=std,
                               pca_sigma=pca_sigma,
@@ -30,7 +29,8 @@ def create_iterator(train, valid, mean, std,
                               random_erase=random_erase,
                               output_size=output_size,
                               train=True)
-    transform_valid = partial(transform_img, mean=mean, std=std, output_size=output_size,
+    transform_valid = partial(transform_with_softlabel,
+                              mean=mean, std=std, output_size=output_size,
                               random_crop_size=random_crop_size)
 
     processed_train = TransformDataset(train, transform_train)

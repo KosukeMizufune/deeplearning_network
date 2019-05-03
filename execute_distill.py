@@ -4,7 +4,6 @@ from functools import partial
 
 import chainer
 from chainer.training import extensions
-from chainer import links as L
 from chainer import serializers
 from chainer.datasets import cifar, split_dataset_random, tuple_dataset
 from chainer.dataset.convert import concat_examples
@@ -13,6 +12,7 @@ import numpy as np
 
 from utils import create_iterator, create_model, create_trainer, caffe2npz, trainer_extend
 from distill.utils import generate_softlabel, save_softlabels
+from distill.knowledge_distill import DistillClassifier
 
 
 if __name__ == '__main__':
@@ -61,11 +61,6 @@ if __name__ == '__main__':
 
     mean = np.mean([x for x, _ in train], axis=(0, 2, 3))
     std = np.std([x for x, _ in train], axis=(0, 2, 3))
-    train_iter, valid_iter =\
-        create_iterator(train, valid, mean, std,
-                        args.pca_sigma, args.random_angle, args.x_random_flip,
-                        args.y_random_flip, args.expand_ratio, args.random_crop_size,
-                        args.random_erase, args.output_size, args.batchsize)
 
     n_class = 10
     npz_filename = None
@@ -73,7 +68,7 @@ if __name__ == '__main__':
                            args.teacher_name,
                            npz_filename,
                            n_class,
-                           args.layer)
+                           args.layers)
     serializers.load_npz(
         args.teacher_model,
         teacher, path='updater/model:main/predictor/')
@@ -92,6 +87,12 @@ if __name__ == '__main__':
     soft_labels_v = np.load('val' + args.softlabels_path)
     valid_soft = tuple_dataset.TupleDataset(img_v, soft_labels_v, lab_v)
 
+    train_iter, valid_iter = \
+        create_iterator(train_soft, valid_soft, mean, std,
+                        args.pca_sigma, args.random_angle, args.x_random_flip,
+                        args.y_random_flip, args.expand_ratio, args.random_crop_size,
+                        args.random_erase, args.output_size, args.batchsize)
+
     if args.caffe_model_path:
         npz_filename = caffe2npz(args.caffe_model_path)
     model = create_model(args.model_file,
@@ -99,7 +100,7 @@ if __name__ == '__main__':
                          npz_filename,
                          n_class,
                          args.layers)
-    net = L.Classifier(model)
+    net = DistillClassifier(model)
 
     evaluator = extensions.Evaluator(valid_iter, net, device=args.gpu_id)
 
