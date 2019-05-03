@@ -18,7 +18,7 @@ class DistillClassifier(link.Chain):
     def __init__(self, predictor,
                  lossfun_soft=None,
                  lossfun_hard=F.softmax_cross_entropy,
-                 alpha=0.5,
+                 alpha=0.8,
                  t=1.0,
                  accfun=accuracy.accuracy,
                  label_key=-1):
