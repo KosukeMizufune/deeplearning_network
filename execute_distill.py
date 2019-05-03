@@ -1,18 +1,16 @@
 import argparse
-import os
-from functools import partial
 
 import chainer
+
 from chainer.training import extensions
-from chainer import serializers
-from chainer.datasets import cifar, split_dataset_random, tuple_dataset
-from chainer.dataset.convert import concat_examples
+from chainer.datasets import cifar, split_dataset_random
+
 
 import numpy as np
 
 from utils import create_iterator, create_model, create_trainer, caffe2npz, trainer_extend
-from distill.utils import generate_softlabel, save_softlabels
-from distill.knowledge_distill import DistillClassifier
+from distill.utils import create_dataset_w_softlabel
+from distill.knowledge_distill import DistillClassifier, softmax_cross_entropy_softlabel
 
 
 if __name__ == '__main__':
@@ -48,9 +46,6 @@ if __name__ == '__main__':
     parser.add_argument('--random_crop_size', type=int, nargs='*', default=[0, 0])
     parser.add_argument('--output_size', type=int, nargs='*', default=[224, 224])
 
-    parser.add_argument('--teacher_file', type=str, default=None)
-    parser.add_argument('--teacher_name', type=str, default=None)
-    parser.add_argument('--teacher_model', type=str, default=None)
     parser.add_argument('--softlabels_path', type=str, default=None)
 
     args = parser.parse_args()
@@ -61,31 +56,10 @@ if __name__ == '__main__':
 
     mean = np.mean([x for x, _ in train], axis=(0, 2, 3))
     std = np.std([x for x, _ in train], axis=(0, 2, 3))
-
     n_class = 10
-    npz_filename = None
-    teacher = create_model(args.teacher_file,
-                           args.teacher_name,
-                           npz_filename,
-                           n_class,
-                           args.layers)
-    serializers.load_npz(
-        args.teacher_model,
-        teacher, path='updater/model:main/predictor/')
-    teacher.to_gpu()
-    fun_generate_soft = partial(generate_softlabel, model=teacher, mean=mean, std=std)
-    if not os.path.exists(args.softlabels_path):
-        save_softlabels(train, fun_generate_soft, args.softlabels_path)
-    if not os.path.exists('val' + args.softlabels_path):
-        save_softlabels(valid, fun_generate_soft, 'val' + args.softlabels_path)
 
-    img_t, lab_t = concat_examples(train)
-    soft_labels_t = np.load(args.softlabels_path)
-    train_soft = tuple_dataset.TupleDataset(img_t, soft_labels_t, lab_t)
-
-    img_v, lab_v = concat_examples(valid)
-    soft_labels_v = np.load('val' + args.softlabels_path)
-    valid_soft = tuple_dataset.TupleDataset(img_v, soft_labels_v, lab_v)
+    train_soft = create_dataset_w_softlabel(train, args.softlabels_path)
+    valid_soft = create_dataset_w_softlabel(valid, 'val_' + args.softlabels_path)
 
     train_iter, valid_iter = \
         create_iterator(train_soft, valid_soft, mean, std,
@@ -93,14 +67,15 @@ if __name__ == '__main__':
                         args.y_random_flip, args.expand_ratio, args.random_crop_size,
                         args.random_erase, args.output_size, args.batchsize)
 
+    npz_filename = None
     if args.caffe_model_path:
         npz_filename = caffe2npz(args.caffe_model_path)
     model = create_model(args.model_file,
                          args.model_name,
-                         npz_filename,
                          n_class,
+                         npz_filename,
                          args.layers)
-    net = DistillClassifier(model)
+    net = DistillClassifier(model, lossfun_soft=softmax_cross_entropy_softlabel)
 
     evaluator = extensions.Evaluator(valid_iter, net, device=args.gpu_id)
 
