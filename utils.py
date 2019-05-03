@@ -44,7 +44,7 @@ def create_iterator(train, valid, mean, std,
     return train_iter, valid_iter
 
 
-def create_model(model_file, model_name, model_filename, n_class, layers):
+def create_model(model_file, model_name, n_class, model_filename=None,  layers=None):
     ext = os.path.splitext(model_file)[1]
     mod_path = '.'.join(os.path.split(model_file)).replace(ext, '')
     mod = import_module(mod_path)
