@@ -48,13 +48,16 @@ if __name__ == '__main__':
                         args.y_random_flip, args.expand_ratio, args.random_crop_size,
                         args.random_erase, args.output_size, args.batchsize)
 
-    npz_filename = None
+    model_filename = None
     if args.caffe_model_path:
-        npz_filename = caffe2npz(args.caffe_model_path)
+        model_filename = caffe2npz(args.caffe_model_path)
+    elif args.model_file == 'models/resnet.py':
+        model_filename = 'auto'
+
     n_class = 10
     model = create_model(args.model_file,
                          args.model_name,
-                         npz_filename,
+                         model_filename,
                          n_class,
                          args.layers)
     net = L.Classifier(model)
