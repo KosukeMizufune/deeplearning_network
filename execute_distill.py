@@ -1,15 +1,13 @@
 import argparse
 
 import chainer
-
 from chainer.training import extensions
 from chainer.datasets import cifar, split_dataset_random
-
 
 import numpy as np
 
 from utils import create_iterator, create_model, create_trainer, caffe2npz, trainer_extend
-from distill.utils import create_dataset_w_softlabel
+from distill.utils import create_dataset_w_softlabel, transform_with_softlabel
 from distill.knowledge_distill import DistillClassifier, softmax_cross_entropy_softlabel
 
 
@@ -65,15 +63,19 @@ if __name__ == '__main__':
         create_iterator(train_soft, valid_soft, mean, std,
                         args.pca_sigma, args.random_angle, args.x_random_flip,
                         args.y_random_flip, args.expand_ratio, args.random_crop_size,
-                        args.random_erase, args.output_size, args.batchsize)
+                        args.random_erase, args.output_size, args.batchsize,
+                        transform_with_softlabel)
 
-    npz_filename = None
+    model_filename = None
     if args.caffe_model_path:
-        npz_filename = caffe2npz(args.caffe_model_path)
+        model_filename = caffe2npz(args.caffe_model_path)
+    elif args.model_file == 'models/resnet.py':
+        model_filename = 'auto'
+
     model = create_model(args.model_file,
                          args.model_name,
                          n_class,
-                         npz_filename,
+                         model_filename,
                          args.layers)
     net = DistillClassifier(model, lossfun_soft=softmax_cross_entropy_softlabel)
 
