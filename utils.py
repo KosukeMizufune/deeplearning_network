@@ -4,20 +4,18 @@ from pathlib import Path
 import os
 
 from chainer import iterators, optimizers, training, cuda
-from chainer.datasets import cifar, split_dataset_random, TransformDataset
+from chainer.datasets import TransformDataset
 from chainer.links.caffe.caffe_function import CaffeFunction
 from chainer.serializers import npz
 from chainer.optimizer_hooks import WeightDecay
 from chainer.training import extensions, triggers
 
-from distill.utils import transform_with_softlabel
-
 
 def create_iterator(train, valid, mean, std,
                     pca_sigma, random_angle, x_random_flip, y_random_flip,
                     expand_ratio, random_crop_size, random_erase, output_size,
-                    batchsize):
-    transform_train = partial(transform_with_softlabel,
+                    batchsize, transform_fun):
+    transform_train = partial(transform_fun,
                               mean=mean,
                               std=std,
                               pca_sigma=pca_sigma,
@@ -29,7 +27,7 @@ def create_iterator(train, valid, mean, std,
                               random_erase=random_erase,
                               output_size=output_size,
                               train=True)
-    transform_valid = partial(transform_with_softlabel,
+    transform_valid = partial(transform_fun,
                               mean=mean, std=std, output_size=output_size,
                               random_crop_size=random_crop_size)
 
