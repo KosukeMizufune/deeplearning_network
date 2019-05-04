@@ -3,8 +3,12 @@ import argparse
 import chainer
 from chainer.training import extensions
 from chainer import links as L
+from chainer.datasets import cifar, split_dataset_random
+
+import numpy as np
 
 from utils import create_iterator, create_model, create_trainer, caffe2npz, trainer_extend
+from transform import transform_img
 
 
 if __name__ == '__main__':
@@ -43,10 +47,20 @@ if __name__ == '__main__':
     args = parser.parse_args()
     # TODO: small_lr_layers
 
+    train_val, test = cifar.get_cifar10(scale=255.)
+    train_size = int(len(train_val) * 0.9)
+    train, valid = split_dataset_random(train_val, train_size, seed=0)
+
+    mean = np.mean([x for x, _ in train], axis=(0, 2, 3))
+    std = np.std([x for x, _ in train], axis=(0, 2, 3))
+    n_class = 10
+
     train_iter, valid_iter =\
-        create_iterator(args.pca_sigma, args.random_angle, args.x_random_flip,
+        create_iterator(train, valid, mean, std,
+                        args.pca_sigma, args.random_angle, args.x_random_flip,
                         args.y_random_flip, args.expand_ratio, args.random_crop_size,
-                        args.random_erase, args.output_size, args.batchsize)
+                        args.random_erase, args.output_size, args.batchsize,
+                        transform_img)
 
     model_filename = None
     if args.caffe_model_path:
@@ -54,11 +68,10 @@ if __name__ == '__main__':
     elif args.model_file == 'models/resnet.py':
         model_filename = 'auto'
 
-    n_class = 10
     model = create_model(args.model_file,
                          args.model_name,
-                         model_filename,
                          n_class,
+                         model_filename,
                          args.layers)
     net = L.Classifier(model)
 
